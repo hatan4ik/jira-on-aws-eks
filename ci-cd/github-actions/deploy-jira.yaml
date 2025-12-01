@@ -1,0 +1,41 @@
+name: Deploy Jira to EKS
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "k8s/helm/jira/**"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: "v1.30.0"
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --name jira-eks --region us-east-1
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: "v3.15.0"
+
+      - name: Deploy Jira via Helm
+        run: |
+          cd k8s/helm/jira
+          helm upgrade --install jira .                 --namespace jira-prod                 --create-namespace

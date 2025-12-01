@@ -1,0 +1,50 @@
+replicaCount: 2
+
+image:
+  repository: atlassian/jira-software
+  tag: "9.0.0"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: true
+  className: alb
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80,"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+  hosts:
+    - host: jira.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - hosts:
+        - jira.example.com
+      secretName: jira-tls-placeholder
+
+resources:
+  requests:
+    cpu: "500m"
+    memory: "2Gi"
+  limits:
+    cpu: "2"
+    memory: "4Gi"
+
+jira:
+  jvmMaxHeap: "2g"
+  db:
+    host: "jira-db.example.internal"
+    port: 5432
+    name: "jira"
+    user: "jira_user"
+    passwordSecretName: "jira-db-secret"
+    passwordSecretKey: "password"
+  sharedHome:
+    efsFileSystemId: "fs-xxxxxxxx"
+    path: "/var/atlassian/application-data/jira"

@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "jira.fullname" . }}
+  labels:
+    app: {{ include "jira.name" . }}
+    chart: {{ include "jira.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "jira.name" . }}
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "jira.name" . }}
+        release: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: jira
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 8080
+          env:
+            - name: JVM_MINIMUM_MEMORY
+              value: {{ .Values.jira.jvmMaxHeap | quote }}
+            - name: JVM_MAXIMUM_MEMORY
+              value: {{ .Values.jira.jvmMaxHeap | quote }}
+            - name: ATL_DB_TYPE
+              value: "postgres72"
+            - name: ATL_JDBC_URL
+              value: "jdbc:postgresql://{{ .Values.jira.db.host }}:{{ .Values.jira.db.port }}/{{ .Values.jira.db.name }}"
+            - name: ATL_JDBC_USER
+              value: {{ .Values.jira.db.user | quote }}
+            - name: ATL_JDBC_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.jira.db.passwordSecretName }}
+                  key: {{ .Values.jira.db.passwordSecretKey }}
+          volumeMounts:
+            - name: shared-home
+              mountPath: {{ .Values.jira.sharedHome.path }}
+      volumes:
+        - name: shared-home
+          persistentVolumeClaim:
+            claimName: {{ include "jira.fullname" . }}-efs-pvc
