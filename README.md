@@ -69,6 +69,62 @@ In an interview, start by framing assumptions and requirements.
 
 > Jira Data Center on **AWS EKS**, backed by **RDS (PostgreSQL/Aurora)** and **EFS**, fronted by an **ALB** via the AWS Load Balancer Controller, with everything managed via **Terraform + Helm + CI/CD**.
 
+graph TD
+    subgraph "DevOps & IaC"
+        direction LR
+        CI_CD("CI/CD Pipeline<br>(e.g., GitHub Actions)")
+        Terraform("Terraform")
+        Helm("Helm")
+    end
+
+    subgraph "AWS Cloud"
+        direction TB
+        User("User")
+        Route53("Route 53<br>jira.company.com")
+
+        subgraph "VPC"
+            direction TB
+            ALB("Application Load Balancer (ALB)")
+
+            subgraph "AWS EKS Cluster"
+                direction TB
+                Ingress("Ingress<br>(AWS Load Balancer Controller)")
+                Service("Jira Service<br>(ClusterIP)")
+                JiraPods("Jira Data Center Pods")
+            end
+
+            RDS("RDS<br>(PostgreSQL/Aurora)")
+            EFS("EFS<br>(Shared Home)")
+        end
+    end
+
+    User --> Route53
+    Route53 --> ALB
+    ALB --> Ingress
+    Ingress --> Service
+    Service --> JiraPods
+    JiraPods --> RDS
+    JiraPods --> EFS
+
+    CI_CD -- "runs" --> Terraform
+    CI_CD -- "runs" --> Helm
+
+    Terraform -- "provisions" --> VPC
+    Terraform -- "provisions" --> EKS
+    Terraform -- "provisions" --> RDS
+    Terraform -- "provisions" --> EFS
+
+    Helm -- "deploys Jira to" --> EKS
+
+    classDef awsService fill:#FF9900,stroke:#333,stroke-width:2px;
+    class ALB,Route53,EKS,RDS,EFS awsService;
+
+    classDef k8s fill:#326CE5,stroke:#333,stroke-width:2px,color:white;
+    class Ingress,Service,JiraPods k8s;
+
+    classDef devops fill:#6E5494,stroke:#333,stroke-width:2px,color:white;
+    class CI_CD,Terraform,Helm devops;
+
 ---
 
 ## 2. High-Level Architecture
