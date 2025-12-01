@@ -39,7 +39,7 @@ spec:
             - name: ATL_JDBC_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.jira.db.passwordSecretName }}
+                  name: {{ default (printf "%s-db" (include "jira.fullname" .)) .Values.jira.db.passwordSecretName }}
                   key: {{ .Values.jira.db.passwordSecretKey }}
           volumeMounts:
             - name: shared-home

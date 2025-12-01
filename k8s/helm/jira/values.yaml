@@ -43,8 +43,12 @@ jira:
     port: 5432
     name: "jira"
     user: "jira_user"
-    passwordSecretName: "jira-db-secret"
+    # Set one of the following:
+    # - passwordSecretName to reference an existing secret, or
+    # - password to create a secret named <release>-jira-db with this value.
+    passwordSecretName: ""
     passwordSecretKey: "password"
+    password: ""
   sharedHome:
     efsFileSystemId: "fs-xxxxxxxx"
     path: "/var/atlassian/application-data/jira"
