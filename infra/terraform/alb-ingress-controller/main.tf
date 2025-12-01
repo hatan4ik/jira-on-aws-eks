@@ -1,6 +1,3 @@
-# In a real project, you'd use IRSA and helm_release to deploy AWS Load Balancer Controller.
-# Here we only outline the IAM role to give the idea.
-
 resource "aws_iam_role" "alb_controller" {
   name = "${var.project_name}-alb-controller-role"
 

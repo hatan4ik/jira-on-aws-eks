@@ -34,6 +34,36 @@ variable "availability_zones" {
   default     = ["us-east-1a", "us-east-1b", "us-east-1c"]
 }
 
+variable "eks_cluster_version" {
+  description = "EKS control plane version"
+  type        = string
+  default     = "1.30"
+}
+
+variable "eks_node_instance_type" {
+  description = "Instance type for the Jira node group"
+  type        = string
+  default     = "m5.xlarge"
+}
+
+variable "eks_node_desired_size" {
+  description = "Desired nodes for the Jira node group"
+  type        = number
+  default     = 3
+}
+
+variable "eks_node_min_size" {
+  description = "Minimum nodes for the Jira node group"
+  type        = number
+  default     = 2
+}
+
+variable "eks_node_max_size" {
+  description = "Maximum nodes for the Jira node group"
+  type        = number
+  default     = 6
+}
+
 variable "jira_db_name" {
   type        = string
   description = "Jira database name"
@@ -50,4 +80,22 @@ variable "jira_db_password" {
   type        = string
   description = "Jira database password"
   sensitive   = true
+}
+
+variable "rds_instance_class" {
+  description = "Instance class for Jira RDS"
+  type        = string
+  default     = "db.m5.large"
+}
+
+variable "rds_allocated_storage" {
+  description = "Allocated storage for Jira RDS (GiB)"
+  type        = number
+  default     = 100
+}
+
+variable "rds_backup_retention_period" {
+  description = "Backup retention period for Jira RDS (days)"
+  type        = number
+  default     = 7
 }
