@@ -69,6 +69,7 @@ In an interview, start by framing assumptions and requirements.
 
 > Jira Data Center on **AWS EKS**, backed by **RDS (PostgreSQL/Aurora)** and **EFS**, fronted by an **ALB** via the AWS Load Balancer Controller, with everything managed via **Terraform + Helm + CI/CD**.
 
+```mermaid
 graph TD
     subgraph "DevOps & IaC"
         direction LR
@@ -124,6 +125,7 @@ graph TD
 
     classDef devops fill:#6E5494,stroke:#333,stroke-width:2px,color:white;
     class CI_CD,Terraform,Helm devops;
+```
 
 ---
 
