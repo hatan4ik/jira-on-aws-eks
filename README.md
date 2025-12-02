@@ -44,27 +44,41 @@ jira-on-aws-eks/
 │     │  ├─ main.tf
 │     │  ├─ variables.tf
 │     │  └─ outputs.tf
-│     └─ alb-ingress-controller/
-│        ├─ main.tf
-│        ├─ variables.tf
-│        └─ outputs.tf
+│     ├─ alb-ingress-controller/
+│     │  ├─ main.tf
+│     │  ├─ variables.tf
+│     │  └─ outputs.tf
+│     ├─ secrets-manager/
+│     │  ├─ main.tf
+│     │  ├─ variables.tf
+│     │  └─ outputs.tf
+│     └─ prod.tfvars.example
 ├─ k8s/
-│  └─ helm/
-│     └─ jira/
-│        ├─ Chart.yaml
-│        ├─ values.yaml
-│        └─ templates/
-│           ├─ _helpers.tpl
-│           ├─ deployment.yaml
-│           ├─ service.yaml
-│           ├─ ingress.yaml
-│           ├─ configmap.yaml
-│           ├─ secret.yaml
-│           ├─ pv-efs.yaml
-│           └─ pvc-efs.yaml
-└─ ci-cd/
-   └─ github-actions/
-      └─ deploy-jira.yaml
+│  ├─ helm/
+│  │  └─ jira/
+│  │     ├─ Chart.yaml
+│  │     ├─ values.yaml
+│  │     ├─ values-prod.yaml
+│  │     └─ templates/
+│  │        ├─ _helpers.tpl
+│  │        ├─ deployment.yaml
+│  │        ├─ service.yaml
+│  │        ├─ ingress.yaml
+│  │        ├─ configmap.yaml
+│  │        ├─ secret.yaml
+│  │        ├─ pv-efs.yaml
+│  │        ├─ pvc-efs.yaml
+│  │        └─ hpa.yaml
+│  ├─ monitoring/
+│  │  ├─ prometheus-values.yaml
+│  │  └─ external-secrets-operator.yaml
+│  └─ backup/
+│     └─ efs-backup-cronjob.yaml
+├─ ci-cd/
+│  └─ github-actions/
+│     └─ deploy-jira.yaml
+└─ scripts/
+   └─ deploy-production.sh
 ```
 
 ---
@@ -320,9 +334,7 @@ cp infra/terraform/prod.tfvars.example infra/terraform/prod.tfvars
 ./scripts/deploy-production.sh
 ```
 
-### 5.4 CI/CD Example – GitHub Actions with Argo CD / Flux, or use a CI pipeline to run the Helm commands.
-
-### 5.3 CI/CD Example – GitHub Actions
+### 5.4 CI/CD Example – GitHub Actions
 
 Under `ci-cd/github-actions/deploy-jira.yaml`:
 
