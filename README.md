@@ -509,38 +509,46 @@ If you walk them logically through these steps, with this repo as a concrete anc
 
 ---
 
-## Quick Start (for experimentation)
+## Zero-to-hero (AWS EKS or Azure AKS + GitOps)
 
-> This is intentionally not plug-and-play; it’s meant to be a safe scaffold you can modify and explain.
+> These flows are intentionally concise; tailor variables and secrets for your org before running.
 
-1. **Clone & inspect**  
-   Review `infra/terraform` and `k8s/helm/jira` to understand the components.
-
-2. **Customize Terraform variables**  
-   In `infra/terraform/variables.tf` set:
-   - `aws_region`
-   - `vpc_cidr`, subnets, AZs
-   - `jira_db_password` (via `-var` or TF vars file; don’t hardcode).
-
-3. **Apply infra (test account only!)**  
+**AWS EKS path**
+1. Clone and inspect `infra/terraform` and `k8s/helm/jira`.
+2. Apply AWS infra (test account only):
    ```bash
    cd infra/terraform
    terraform init
-   terraform apply
+   terraform apply \
+     -var="aws_region=us-east-1" \
+     -var="jira_db_password=change-me"
    ```
+3. Wire Helm values: set `jira.db.host` to the RDS endpoint and `jira.sharedHome.efsFileSystemId` from outputs in `k8s/helm/jira/values.yaml` (or an env-specific override).
+4. Deploy Jira:
+   ```bash
+   cd k8s/helm/jira
+   helm upgrade --install jira . -n jira-prod --create-namespace
+   ```
+5. (Optional GitOps) Apply `gitops/argocd/jira-app.yaml` or the Flux manifests under `gitops/flux/`, or use the CI templates in `gitops/pipelines/` (set `KUBECONFIG_B64` + `GITOPS_TOOL`).
 
-4. **Update Helm values**  
-   In `k8s/helm/jira/values.yaml` set:
-   - `jira.db.host` to the RDS endpoint.
-   - `jira.sharedHome.efsFileSystemId` to the Terraform output.
-   - Domain and TLS secret.
+**Azure AKS path**
+1. Apply Azure infra with the Terraform skeleton under `azure/terraform` (VNet, AKS, PostgreSQL Flexible Server, Azure Files):
+   ```bash
+   cd azure/terraform
+   terraform init
+   terraform apply \
+     -var="resource_group_name=jira-rg" \
+     -var="location=eastus" \
+     -var="postgres_admin_password=change-me"
+   ```
+2. Note outputs: `aks_kubeconfig` (kubeconfig), `postgres_fqdn` (DB host), `storage_share_name` (shared home).
+3. Set Jira values using the Azure overlay:
+   ```bash
+   cd k8s/helm/jira
+   helm upgrade --install jira . \
+     -n jira-prod --create-namespace \
+     -f values.yaml -f values-azure.yaml
+   ```
+4. (Optional GitOps) Apply Argo CD or Flux manifests from `gitops/` and/or enable a CI template under `gitops/pipelines/` to sync automatically.
 
-5. **Deploy Jira**  
-```bash
-cd k8s/helm/jira
-helm upgrade --install jira . -n jira-prod --create-namespace
-```
-
-From here you can iterate, tune, and extend as if you’re doing a real FAANG-level platform design.
-
-> Azure path: use `azure/terraform` to provision VNet/AKS/PostgreSQL/Files, then deploy with `values.yaml` + `values-azure.yaml` (manually or via the Argo CD / Flux examples in `gitops/`).
+From here you can iterate, tune resources, add SSO, harden networking, and extend observability using the monitoring/backup examples.

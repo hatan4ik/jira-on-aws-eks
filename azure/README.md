@@ -77,6 +77,15 @@ graph TD
 - Secrets: **Key Vault** surfaced into AKS via **CSI Secret Store**.
 - Observability: **Azure Monitor / Log Analytics** for logs and metrics; optional Prometheus/Grafana add-on.
 
+## Zero-to-hero (AKS + GitOps)
+1) **State + secrets** – Create the remote backend (see “Backend Configuration”) and set `postgres_admin_password` (strong, stored in Key Vault by Terraform).  
+2) **Provision infra** – From `azure/terraform`, run `terraform init` (with backend config) then `terraform apply` with `resource_group_name`, `location`, `postgres_admin_password`, and `admin_ip_address`. This stands up VNet/subnets, AKS (OIDC/workload identity), PostgreSQL Flexible Server (private + HA), Azure Files Premium, Key Vault, and Log Analytics.  
+3) **Capture outputs** – `aks_kubeconfig` (for `kubectl`/Helm and for `KUBECONFIG_B64` in CI), `postgres_fqdn`, `storage_share_name`.  
+4) **Deploy Jira** – Helm with `values.yaml` + `values-azure.yaml`, or GitOps:
+   - Argo CD: apply `gitops/argocd/jira-app.yaml` (update repo URL/branch).
+   - Flux: apply `gitops/flux/kustomization.yaml` and `jira-helmrelease.yaml`.
+   - CI templates: `gitops/pipelines/` for GitHub Actions, Azure DevOps, GitLab (set `GITOPS_TOOL` and `KUBECONFIG_B64` secrets).
+
 ## Outline to stand up a minimal POC
 1) Create a resource group and virtual network with private subnets (Terraform module: `azure/terraform/network`).  
 2) Provision AKS with a system node pool and enable OIDC/workload identity (module: `azure/terraform/aks`).  
