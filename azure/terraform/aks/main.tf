@@ -8,10 +8,13 @@ resource "azurerm_kubernetes_cluster" "this" {
 
   default_node_pool {
     name                = "system"
-    node_count          = var.node_count
     vm_size             = var.node_vm_size
     vnet_subnet_id      = var.vnet_subnet_id
     type                = "VirtualMachineScaleSets"
+    enable_auto_scaling = true
+    min_count           = var.system_node_pool_min_count
+    max_count           = var.system_node_pool_max_count
+    mode                = "System"
   }
 
   identity {
@@ -28,4 +31,20 @@ resource "azurerm_kubernetes_cluster" "this" {
   }
 
   role_based_access_control_enabled = true
+
+  oms_agent {
+    log_analytics_workspace_id = var.log_analytics_workspace_id
+  }
+}
+
+resource "azurerm_kubernetes_cluster_node_pool" "user" {
+  name                  = "user"
+  kubernetes_cluster_id = azurerm_kubernetes_cluster.this.id
+  vm_size               = var.user_node_pool_vm_size
+  vnet_subnet_id        = var.vnet_subnet_id
+  enable_auto_scaling   = true
+  min_count             = var.user_node_pool_min_count
+  max_count             = var.user_node_pool_max_count
+  mode                  = "User"
+  tags                  = var.tags
 }

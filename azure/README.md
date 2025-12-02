@@ -75,13 +75,54 @@ graph TD
 6) Deploy the Jira Helm chart with the Azure override file (`k8s/helm/jira/values-azure.yaml`) via Helm or GitOps (Argo CD/Flux examples under `gitops/`).
 
 ## How to use the Terraform skeleton
+
+This Terraform setup uses a remote backend to store the state file in Azure Storage. This is a best practice for collaborative environments and CI/CD automation.
+
+### Backend Configuration (One-time setup)
+
+Before you can run Terraform, you need to create a storage account and a container to hold the state file. You can do this using the Azure CLI:
+
+```bash
+# Variables
+BACKEND_RG="jira-tf-state-rg"
+BACKEND_STORAGE_ACCOUNT="jiratfstate$RANDOM"
+BACKEND_CONTAINER="tfstate"
+LOCATION="eastus"
+
+# Create resource group
+az group create --name $BACKEND_RG --location $LOCATION
+
+# Create storage account
+az storage account create --name $BACKEND_STORAGE_ACCOUNT --resource-group $BACKEND_RG --location $LOCATION --sku Standard_LRS --encryption-services blob
+
+# Create blob container
+az storage container create --name $BACKEND_CONTAINER --account-name $BACKEND_STORAGE_ACCOUNT
+```
+
+### Initializing Terraform
+
+Once the backend storage is created, you can initialize Terraform. The configuration is passed during the `init` command, not stored in the code, for better security and flexibility.
+
 ```bash
 cd azure/terraform
-terraform init
+
+terraform init \
+    -backend-config="resource_group_name=$BACKEND_RG" \
+    -backend-config="storage_account_name=$BACKEND_STORAGE_ACCOUNT" \
+    -backend-config="container_name=$BACKEND_CONTAINER" \
+    -backend-config="key=jira.prod.tfstate"
+```
+
+### Applying the plan
+
+After initialization, you can apply the Terraform plan. You will need to provide your current public IP address for the `admin_ip_address` variable to allow SSH access to the AKS nodes.
+
+```bash
 terraform apply \
   -var="resource_group_name=jira-rg" \
   -var="postgres_admin_password=change-me" \
-  -var="location=eastus"
+  -var="location=eastus" \
+  -var="admin_ip_address=<YOUR_PUBLIC_IP>"
 ```
 
 Key outputs:
@@ -107,17 +148,19 @@ helm upgrade --install jira . \
 
 Apply them from your management cluster after adjusting repo URL/branch and secrets.
 
+## Permissions
+
+The Terraform configuration now includes an Azure Key Vault to manage the PostgreSQL password. The user or service principal running `terraform apply` will have an access policy automatically added to the Key Vault to manage secrets. This is handled by the `keyvault` module, which uses the `azurerm_client_config` data source to get the `object_id` of the caller.
+
 ## Code Review and Recommendations
 
 The Terraform code in `azure/terraform` provides a solid foundation for provisioning the necessary infrastructure for Jira on Azure. Here are some observations and recommendations:
 
 *   **Good Separation of Concerns:** The project correctly separates infrastructure provisioning (Terraform) from application deployment (Helm/GitOps). This is a best practice that allows for independent management of each layer.
-*   **Modular Terraform:** The use of Terraform modules for different components (network, AKS, PostgreSQL, storage) is a good practice. This makes the code more organized, reusable, and easier to maintain.
+*   **Modular Terraform:** The use of Terraform modules for different components (network, AKS, PostgreSQL, storage, keyvault) is a good practice. This makes the code more organized, reusable, and easier to maintain.
+*   **Secrets Management:** The PostgreSQL password is now managed by Azure Key Vault. The `postgres_admin_password` variable is only used to set the initial secret in the vault. The PostgreSQL module then retrieves the secret directly from Key Vault. This is a secure approach that avoids passing secrets in plaintext.
 *   **Manual Configuration Step:** A key part of the process is manually updating `k8s/helm/jira/values-azure.yaml` with the outputs from the Terraform deployment (like the PostgreSQL FQDN). This is a potential source of human error.
     *   **Recommendation:** To improve this, consider using a tool or script to automate the injection of Terraform outputs into the Helm values file. For example, you could use a simple `sed` command in a script, or a more advanced tool like `terragrunt` or a custom CI/CD job to handle this automatically.
-*   **Secrets Management:** The example `terraform apply` command shows passing the PostgreSQL password as a command-line variable. This is not secure as it can be stored in shell history.
-    *   **Recommendation:** Use a more secure method for managing secrets. For production, use a secrets management tool like Azure Key Vault. For local development, use a `.tfvars` file that is added to `.gitignore`, or set the variable as an environment variable (`TF_VAR_postgres_admin_password`).
-*   **State File Management:** The current setup appears to store the Terraform state file locally. For a collaborative or production environment, this is not ideal.
-    *   **Recommendation:** Configure a remote backend for the Terraform state file, such as an Azure Storage Account. This provides locking to prevent concurrent modifications and ensures that the state is accessible to all team members and CI/CD pipelines.
+*   **State File Management:** The setup now uses a remote backend for the Terraform state file, which is a best practice for collaboration and CI/CD.
 
 By addressing these recommendations, the project can be made more robust, secure, and easier to manage in a team environment.

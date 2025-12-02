@@ -33,6 +33,11 @@ variable "appgw_subnet_cidr" {
   type        = string
 }
 
+variable "admin_ip_address" {
+  description = "Admin IP address for SSH access to AKS nodes."
+  type        = string
+}
+
 variable "tags" {
   description = "Tags to apply to resources."
   type        = map(string)

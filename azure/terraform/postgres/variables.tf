@@ -60,6 +60,18 @@ variable "geo_redundant_backup" {
   default     = true
 }
 
+variable "database_name" {
+  description = "Name for the PostgreSQL database."
+  type        = string
+  default     = "jira"
+}
+
+variable "availability_zone" {
+  description = "Availability zone for the PostgreSQL server."
+  type        = string
+  default     = "1"
+}
+
 variable "tags" {
   description = "Tags to apply."
   type        = map(string)

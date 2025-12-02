@@ -39,22 +39,51 @@ variable "appgw_subnet_cidr" {
   default     = "10.20.3.0/24"
 }
 
+variable "admin_ip_address" {
+  description = "Admin IP address for SSH access to AKS nodes."
+  type        = string
+}
+
 variable "aks_kubernetes_version" {
   description = "Kubernetes version for the AKS cluster."
   type        = string
   default     = "1.29.7"
 }
 
-variable "aks_node_count" {
-  description = "Node count for the system node pool."
+variable "aks_node_vm_size" {
+  description = "VM size for AKS system nodes."
+  type        = string
+  default     = "Standard_D4s_v5"
+}
+
+variable "aks_system_node_pool_min_count" {
+  description = "Minimum node count for the system node pool."
+  type        = number
+  default     = 1
+}
+
+variable "aks_system_node_pool_max_count" {
+  description = "Maximum node count for the system node pool."
   type        = number
   default     = 3
 }
 
-variable "aks_node_vm_size" {
-  description = "VM size for AKS nodes."
+variable "aks_user_node_pool_vm_size" {
+  description = "VM size for the user node pool."
   type        = string
-  default     = "Standard_D4s_v5"
+  default     = "Standard_D8s_v5"
+}
+
+variable "aks_user_node_pool_min_count" {
+  description = "Minimum node count for the user node pool."
+  type        = number
+  default     = 2
+}
+
+variable "aks_user_node_pool_max_count" {
+  description = "Maximum node count for the user node pool."
+  type        = number
+  default     = 5
 }
 
 variable "aks_enable_oidc_issuer" {
@@ -106,9 +135,15 @@ variable "postgres_admin_user" {
 }
 
 variable "postgres_admin_password" {
-  description = "Admin password for PostgreSQL."
+  description = "Initial admin password for PostgreSQL, used to set the secret in Azure Key Vault."
   type        = string
   sensitive   = true
+}
+
+variable "postgres_database_name" {
+  description = "Name for the PostgreSQL database."
+  type        = string
+  default     = "jira"
 }
 
 variable "storage_account_replication_type" {
