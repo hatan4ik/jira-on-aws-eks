@@ -1,0 +1,52 @@
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - k8s/helm/jira/**/*
+      - gitops/**/*
+
+variables:
+  GITOPS_TOOL: argocd # or flux
+
+stages:
+  - stage: gitops
+    displayName: Apply GitOps manifests
+    jobs:
+      - job: sync
+        displayName: Sync
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - checkout: self
+          - task: Bash@3
+            name: writeKubeconfig
+            displayName: Write kubeconfig
+            env:
+              KUBECONFIG_B64: $(KUBECONFIG_B64)
+            inputs:
+              targetType: inline
+              script: |
+                mkdir -p ~/.kube
+                echo "$KUBECONFIG_B64" | base64 -d > ~/.kube/config
+
+          - task: Bash@3
+            name: applyArgo
+            displayName: Apply Argo CD Application
+            condition: eq(variables['GITOPS_TOOL'], 'argocd')
+            inputs:
+              targetType: inline
+              script: |
+                kubectl apply -f gitops/argocd/jira-app.yaml
+                kubectl -n argocd wait --for=condition=available deployment/argocd-server --timeout=120s || true
+
+          - task: Bash@3
+            name: applyFlux
+            displayName: Apply Flux HelmRelease
+            condition: eq(variables['GITOPS_TOOL'], 'flux')
+            inputs:
+              targetType: inline
+              script: |
+                kubectl apply -f gitops/flux/kustomization.yaml
+                kubectl apply -f gitops/flux/jira-helmrelease.yaml

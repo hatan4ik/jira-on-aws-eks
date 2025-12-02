@@ -1,0 +1,41 @@
+name: gitops-sync
+
+on:
+  push:
+    paths:
+      - "k8s/helm/jira/**"
+      - "gitops/**"
+  workflow_dispatch:
+
+env:
+  GITOPS_TOOL: argocd # or flux
+  KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: v1.29.0
+
+      - name: Write kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "$KUBECONFIG_B64" | base64 -d > ~/.kube/config
+
+      - name: Apply Argo CD Application
+        if: env.GITOPS_TOOL == 'argocd'
+        run: |
+          kubectl apply -f gitops/argocd/jira-app.yaml
+          kubectl -n argocd wait --for=condition=available deployment/argocd-server --timeout=120s || true
+
+      - name: Apply Flux HelmRelease
+        if: env.GITOPS_TOOL == 'flux'
+        run: |
+          kubectl apply -f gitops/flux/kustomization.yaml
+          kubectl apply -f gitops/flux/jira-helmrelease.yaml

@@ -104,9 +104,13 @@ jira-on-aws-eks/
 ├─ gitops/
 │  ├─ argocd/
 │  │  └─ jira-app.yaml
-│  └─ flux/
-│     ├─ jira-helmrelease.yaml
-│     └─ kustomization.yaml
+│  ├─ flux/
+│  │  ├─ jira-helmrelease.yaml
+│  │  └─ kustomization.yaml
+│  └─ pipelines/
+│     ├─ github-actions-gitops.yaml
+│     ├─ azure-devops-gitops.yml
+│     └─ gitlab-ci-gitops.yml
 ├─ ci-cd/
 │  └─ github-actions/
 │     └─ deploy-jira.yaml
@@ -385,7 +389,8 @@ This is a **minimal example**: in a real setup you’d add linting, Helm chart t
 
 - Argo CD `Application`: `gitops/argocd/jira-app.yaml` (uses `values.yaml` + `values-azure.yaml` overlays).
 - Flux `HelmRelease`: `gitops/flux/jira-helmrelease.yaml` with `kustomization.yaml`.
-- Update repo URL/branch and secrets before applying; combine with environment-specific value files (AWS, Azure) as needed.
+- CI templates for GitHub/Azure DevOps/GitLab live under `gitops/pipelines/`; set `GITOPS_TOOL` to `argocd` or `flux` and provide `KUBECONFIG_B64` secrets.
+- See `gitops/README.md` for a quick start and prerequisites.
 
 ---
 

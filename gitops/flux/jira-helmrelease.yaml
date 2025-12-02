@@ -1,10 +1,23 @@
-apiVersion: helm.toolkit.fluxcd.io/v2beta1
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: jira-repo
+  namespace: flux-system
+spec:
+  interval: 1m
+  url: https://github.com/<org>/jira-on-aws-eks.git
+  ref:
+    branch: main
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: jira-azure
-  namespace: jira-prod
+  name: jira
+  namespace: flux-system
 spec:
-  interval: 10m
+  interval: 5m
+  releaseName: jira
+  targetNamespace: jira-prod
   chart:
     spec:
       chart: ./k8s/helm/jira
@@ -12,36 +25,10 @@ spec:
         kind: GitRepository
         name: jira-repo
         namespace: flux-system
-      interval: 5m
-  values:
-    replicaCount: 3
-    image:
-      repository: atlassian/jira-software
-      tag: "9.0.0"
-    resources:
-      requests:
-        cpu: "2"
-        memory: "8Gi"
-      limits:
-        cpu: "4"
-        memory: "16Gi"
-    jira:
-      jvmMaxHeap: "12g"
-      db:
-        host: "jira-prod-postgres.postgres.database.azure.com"
-        passwordSecretName: "jira-db-secret"
-      sharedHome:
-        azureFiles:
-          storageAccountName: "jiraprodstorageacct"
-          shareName: "jira-shared-home"
-    ingress:
-      enabled: true
-      className: azure-application-gateway
-      hosts:
-        - host: jira.company.com
-          paths:
-            - path: /
-              pathType: Prefix
+      interval: 1m
+      valuesFiles:
+        - values.yaml
+        - values-azure.yaml
   install:
     createNamespace: true
     remediation:
@@ -49,3 +36,10 @@ spec:
   upgrade:
     remediation:
       retries: 3
+  values:
+    ingress:
+      hosts:
+        - host: jira.company.com
+          paths:
+            - path: /
+              pathType: Prefix

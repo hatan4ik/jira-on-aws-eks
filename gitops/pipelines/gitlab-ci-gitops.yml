@@ -1,0 +1,24 @@
+stages:
+  - gitops
+
+variables:
+  GITOPS_TOOL: "argocd" # or flux
+
+gitops_sync:
+  stage: gitops
+  image: bitnami/kubectl:1.29
+  script:
+    - mkdir -p ~/.kube
+    - echo "$KUBECONFIG_B64" | base64 -d > ~/.kube/config
+    - |
+      if [ "$GITOPS_TOOL" = "argocd" ]; then
+        kubectl apply -f gitops/argocd/jira-app.yaml
+        kubectl -n argocd wait --for=condition=available deployment/argocd-server --timeout=120s || true
+      else
+        kubectl apply -f gitops/flux/kustomization.yaml
+        kubectl apply -f gitops/flux/jira-helmrelease.yaml
+      fi
+  rules:
+    - changes:
+        - k8s/helm/jira/**/*
+        - gitops/**/*
