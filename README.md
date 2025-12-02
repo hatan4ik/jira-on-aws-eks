@@ -289,6 +289,39 @@ helm upgrade --install jira . -n jira-prod --create-namespace
 
 You can then add **GitOps** with Argo CD / Flux, or use a CI pipeline to run the Helm commands.
 
+### 5.3 Production Enhancements
+
+**Secrets Management:**
+- AWS Secrets Manager integration via External Secrets Operator
+- Secure storage of DB credentials and Jira license
+- Automatic secret rotation capabilities
+
+**Monitoring & Observability:**
+- Prometheus + Grafana stack for metrics
+- AlertManager for incident response
+- Custom Jira dashboards and alerts
+
+**Backup & Disaster Recovery:**
+- Automated EFS backups via AWS Backup
+- RDS automated backups with 30-day retention
+- Cross-region replication for DR scenarios
+
+**Autoscaling:**
+- Horizontal Pod Autoscaler (HPA) for Jira pods
+- Cluster Autoscaler for node scaling
+- Production-tuned resource limits
+
+**Production Deployment:**
+```bash
+# Copy and customize production variables
+cp infra/terraform/prod.tfvars.example infra/terraform/prod.tfvars
+
+# Run automated production deployment
+./scripts/deploy-production.sh
+```
+
+### 5.4 CI/CD Example – GitHub Actions with Argo CD / Flux, or use a CI pipeline to run the Helm commands.
+
 ### 5.3 CI/CD Example – GitHub Actions
 
 Under `ci-cd/github-actions/deploy-jira.yaml`:
