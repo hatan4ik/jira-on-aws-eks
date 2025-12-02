@@ -55,3 +55,6 @@ kubeconfig
 .trunk/tmp/
 .trunk/user.yaml
 .trunk/user_trunk.yaml
+
+# Snyk Security Extension - AI Rules (auto-generated)
+.github/instructions/snyk_rules.instructions.md
