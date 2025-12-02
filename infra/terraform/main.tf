@@ -78,3 +78,16 @@ module "secrets_manager" {
   jira_db_password  = var.jira_db_password
   jira_license_key  = var.jira_license_key
 }
+
+# CloudWatch monitoring and alerting
+module "cloudwatch" {
+  source = "./cloudwatch"
+
+  project_name           = var.project_name
+  aws_region            = var.aws_region
+  log_retention_days    = var.cloudwatch_log_retention_days
+  alb_arn_suffix        = "" # Will be populated after ALB creation
+  rds_instance_id       = module.rds.db_instance_id
+  alert_email_addresses = var.alert_email_addresses
+  tags                  = local.tags
+}

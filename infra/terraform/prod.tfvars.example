@@ -27,3 +27,7 @@ rds_backup_retention_period = 30
 
 # Secrets
 jira_license_key = "YOUR_JIRA_DATA_CENTER_LICENSE_KEY"
+
+# Observability
+cloudwatch_log_retention_days = 30
+alert_email_addresses = ["oncall@company.com", "team@company.com"]

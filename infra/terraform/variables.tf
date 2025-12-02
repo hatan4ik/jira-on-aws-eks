@@ -106,3 +106,15 @@ variable "jira_license_key" {
   sensitive   = true
   default     = ""
 }
+
+variable "cloudwatch_log_retention_days" {
+  description = "CloudWatch log retention in days"
+  type        = number
+  default     = 30
+}
+
+variable "alert_email_addresses" {
+  description = "List of email addresses for CloudWatch alerts"
+  type        = list(string)
+  default     = []
+}

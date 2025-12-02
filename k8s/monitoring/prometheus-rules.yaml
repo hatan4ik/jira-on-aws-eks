@@ -1,0 +1,92 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: jira-alerts
+  namespace: monitoring
+  labels:
+    app: jira
+    prometheus: kube-prometheus
+    role: alert-rules
+spec:
+  groups:
+  - name: jira.rules
+    rules:
+    - alert: JiraHighCPU
+      expr: rate(container_cpu_usage_seconds_total{namespace="jira-prod",pod=~"jira-.*"}[5m]) * 100 > 80
+      for: 5m
+      labels:
+        severity: warning
+        service: jira
+      annotations:
+        summary: "Jira pod {{ $labels.pod }} has high CPU usage"
+        description: "Jira pod {{ $labels.pod }} CPU usage is {{ $value }}% for more than 5 minutes"
+
+    - alert: JiraHighMemory
+      expr: container_memory_usage_bytes{namespace="jira-prod",pod=~"jira-.*"} / container_spec_memory_limit_bytes{namespace="jira-prod",pod=~"jira-.*"} * 100 > 90
+      for: 5m
+      labels:
+        severity: critical
+        service: jira
+      annotations:
+        summary: "Jira pod {{ $labels.pod }} has high memory usage"
+        description: "Jira pod {{ $labels.pod }} memory usage is {{ $value }}% for more than 5 minutes"
+
+    - alert: JiraPodDown
+      expr: up{job="kubernetes-pods",namespace="jira-prod",pod=~"jira-.*"} == 0
+      for: 1m
+      labels:
+        severity: critical
+        service: jira
+      annotations:
+        summary: "Jira pod {{ $labels.pod }} is down"
+        description: "Jira pod {{ $labels.pod }} has been down for more than 1 minute"
+
+    - alert: JiraHighResponseTime
+      expr: histogram_quantile(0.95, rate(nginx_ingress_controller_request_duration_seconds_bucket{namespace="jira-prod"}[5m])) > 5
+      for: 5m
+      labels:
+        severity: warning
+        service: jira
+      annotations:
+        summary: "Jira has high response time"
+        description: "95th percentile response time is {{ $value }}s for more than 5 minutes"
+
+    - alert: JiraHighErrorRate
+      expr: rate(nginx_ingress_controller_requests_total{namespace="jira-prod",status=~"5.."}[5m]) / rate(nginx_ingress_controller_requests_total{namespace="jira-prod"}[5m]) * 100 > 5
+      for: 5m
+      labels:
+        severity: critical
+        service: jira
+      annotations:
+        summary: "Jira has high error rate"
+        description: "Error rate is {{ $value }}% for more than 5 minutes"
+
+    - alert: JiraDBHighConnections
+      expr: pg_stat_database_numbackends{datname="jira"} > 80
+      for: 5m
+      labels:
+        severity: warning
+        service: jira-database
+      annotations:
+        summary: "Jira database has high connection count"
+        description: "Database connection count is {{ $value }} for more than 5 minutes"
+
+    - alert: JiraJVMHighHeap
+      expr: jvm_memory_used_bytes{area="heap",namespace="jira-prod"} / jvm_memory_max_bytes{area="heap",namespace="jira-prod"} * 100 > 85
+      for: 5m
+      labels:
+        severity: warning
+        service: jira
+      annotations:
+        summary: "Jira JVM heap usage is high"
+        description: "JVM heap usage is {{ $value }}% for more than 5 minutes"
+
+    - alert: JiraVolumeSpaceLow
+      expr: kubelet_volume_stats_available_bytes{namespace="jira-prod",persistentvolumeclaim=~".*jira.*"} / kubelet_volume_stats_capacity_bytes{namespace="jira-prod",persistentvolumeclaim=~".*jira.*"} * 100 < 10
+      for: 5m
+      labels:
+        severity: critical
+        service: jira
+      annotations:
+        summary: "Jira volume space is low"
+        description: "Volume {{ $labels.persistentvolumeclaim }} has only {{ $value }}% space remaining"

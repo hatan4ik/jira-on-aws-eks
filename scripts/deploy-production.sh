@@ -39,6 +39,13 @@ helm install prometheus prometheus-community/kube-prometheus-stack \
   -n monitoring --create-namespace \
   -f ../k8s/monitoring/prometheus-values.yaml
 
+# Apply custom monitoring configurations
+kubectl apply -f ../k8s/monitoring/prometheus-rules.yaml
+kubectl apply -f ../k8s/monitoring/alertmanager-config.yaml
+kubectl apply -f ../k8s/monitoring/grafana-dashboards.yaml
+kubectl apply -f ../k8s/monitoring/postgres-exporter.yaml
+kubectl apply -f ../k8s/monitoring/fluent-bit-config.yaml
+
 # Phase 5: Deploy Jira
 echo "🎯 Phase 5: Deploying Jira..."
 cd ../k8s/helm/jira

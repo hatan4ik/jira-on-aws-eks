@@ -421,24 +421,77 @@ This is a **minimal example**: in a real setup you’d add linting, Helm chart t
 
 ---
 
-## 7. Observability, Logging & Monitoring
+## 7. Enterprise Observability & Monitoring
 
-- **App logs**:
-  - Jira logs written to stdout/stderr inside containers.
-  - Collected by a DaemonSet agent (Fluent Bit / CloudWatch Agent) to CloudWatch Logs or ELK.
-- **Metrics**:
-  - Jira JVM metrics scraped by Prometheus (if you deploy it) and visualized in Grafana.
-  - Kubernetes metrics (CPU, memory, pod restarts, etc.).
-- **AWS metrics**:
-  - RDS CPU, connections, free space.
-  - ALB 4xx/5xx, target response time.
-  - EKS node health.
-- **Alerting**:
-  - CloudWatch Alarms or Alertmanager for:
-    - High error rate or 5xx at ALB.
-    - Low DB free storage.
-    - High JVM heap / GC pressure.
-    - Increased pod restart count.
+### 7.1 Multi-Layer Monitoring Stack
+
+**AWS Native Monitoring:**
+- **CloudWatch Dashboards** - Real-time AWS service metrics (ALB, RDS, EKS)
+- **CloudWatch Alarms** - Automated alerting with SNS integration
+- **CloudWatch Logs** - Centralized log aggregation with retention policies
+- **X-Ray Tracing** - Distributed request tracing (optional)
+
+**Kubernetes-Native Monitoring:**
+- **Prometheus** - Metrics collection and storage (30-day retention)
+- **Grafana** - Advanced visualization and dashboards
+- **AlertManager** - Intelligent alert routing and suppression
+- **ServiceMonitor** - Automatic service discovery for metrics
+
+**Application Monitoring:**
+- **JMX Metrics** - Jira JVM heap, GC, thread pools
+- **PostgreSQL Exporter** - Database performance metrics
+- **Custom Dashboards** - Jira-specific KPIs and SLAs
+
+### 7.2 Logging Architecture
+
+**Log Collection:**
+```
+Jira Pods → Fluent Bit → CloudWatch Logs
+     ↓
+Structured JSON → Log Insights → Dashboards
+```
+
+**Log Categories:**
+- Application logs (`/aws/eks/jira-eks/jira`)
+- Kubernetes system logs (`/aws/eks/jira-eks/cluster`)
+- Audit logs (API server, authentication)
+- Performance logs (response times, errors)
+
+### 7.3 Alerting Strategy
+
+**Critical Alerts (PagerDuty/Slack):**
+- Pod down > 1 minute
+- Memory usage > 90%
+- Error rate > 5%
+- Database connections > 80
+
+**Warning Alerts (Email):**
+- CPU usage > 80%
+- Response time > 5s
+- JVM heap > 85%
+- Disk space < 10%
+
+### 7.4 Production Deployment
+
+```bash
+# Deploy monitoring stack
+helm install prometheus prometheus-community/kube-prometheus-stack \
+  -n monitoring --create-namespace \
+  -f k8s/monitoring/prometheus-values.yaml
+
+# Apply custom rules and dashboards
+kubectl apply -f k8s/monitoring/prometheus-rules.yaml
+kubectl apply -f k8s/monitoring/grafana-dashboards.yaml
+kubectl apply -f k8s/monitoring/postgres-exporter.yaml
+
+# Configure log shipping
+kubectl apply -f k8s/monitoring/fluent-bit-config.yaml
+```
+
+**Key Metrics Tracked:**
+- **SLA Metrics**: Uptime (99.9%), Response Time (< 2s), Error Rate (< 0.1%)
+- **Business Metrics**: Active Users, Issue Creation Rate, Search Performance
+- **Infrastructure Metrics**: Resource Utilization, Cost per User, Scaling Events
 
 ---
 

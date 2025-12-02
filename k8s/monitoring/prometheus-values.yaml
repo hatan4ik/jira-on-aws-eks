@@ -1,6 +1,8 @@
 prometheus:
   prometheusSpec:
     retention: 30d
+    scrapeInterval: 30s
+    evaluationInterval: 30s
     storageSpec:
       volumeClaimTemplate:
         spec:
@@ -8,7 +10,21 @@ prometheus:
           accessModes: ["ReadWriteOnce"]
           resources:
             requests:
-              storage: 50Gi
+              storage: 100Gi
+    additionalScrapeConfigs:
+    - job_name: 'jira-jmx'
+      static_configs:
+      - targets: ['jira.jira-prod.svc.cluster.local:9999']
+      metrics_path: /metrics
+      scrape_interval: 30s
+    - job_name: 'postgres-exporter'
+      static_configs:
+      - targets: ['postgres-exporter.jira-prod.svc.cluster.local:9187']
+    ruleSelector:
+      matchLabels:
+        app: jira
+        prometheus: kube-prometheus
+        role: alert-rules
 
 grafana:
   enabled: true

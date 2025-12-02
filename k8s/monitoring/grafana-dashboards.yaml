@@ -1,0 +1,105 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jira-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  jira-dashboard.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "Jira Data Center Monitoring",
+        "tags": ["jira", "kubernetes"],
+        "timezone": "browser",
+        "panels": [
+          {
+            "id": 1,
+            "title": "Jira Pod CPU Usage",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "rate(container_cpu_usage_seconds_total{namespace=\"jira-prod\",pod=~\"jira-.*\"}[5m]) * 100",
+                "legendFormat": "{{pod}}"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "unit": "percent",
+                "thresholds": {
+                  "steps": [
+                    {"color": "green", "value": null},
+                    {"color": "yellow", "value": 70},
+                    {"color": "red", "value": 90}
+                  ]
+                }
+              }
+            },
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+          },
+          {
+            "id": 2,
+            "title": "Jira Pod Memory Usage",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "container_memory_usage_bytes{namespace=\"jira-prod\",pod=~\"jira-.*\"} / container_spec_memory_limit_bytes{namespace=\"jira-prod\",pod=~\"jira-.*\"} * 100",
+                "legendFormat": "{{pod}}"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "unit": "percent",
+                "thresholds": {
+                  "steps": [
+                    {"color": "green", "value": null},
+                    {"color": "yellow", "value": 80},
+                    {"color": "red", "value": 95}
+                  ]
+                }
+              }
+            },
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+          },
+          {
+            "id": 3,
+            "title": "HTTP Request Rate",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(nginx_ingress_controller_requests_total{namespace=\"jira-prod\"}[5m])",
+                "legendFormat": "{{status}}"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8}
+          },
+          {
+            "id": 4,
+            "title": "Database Connections",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "pg_stat_database_numbackends{datname=\"jira\"}",
+                "legendFormat": "Active Connections"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+          },
+          {
+            "id": 5,
+            "title": "JVM Heap Usage",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "jvm_memory_used_bytes{area=\"heap\",namespace=\"jira-prod\"} / jvm_memory_max_bytes{area=\"heap\",namespace=\"jira-prod\"} * 100",
+                "legendFormat": "Heap Usage %"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
+          }
+        ],
+        "time": {"from": "now-1h", "to": "now"},
+        "refresh": "30s"
+      }
+    }
