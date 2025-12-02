@@ -14,3 +14,14 @@
 {{- define "jira.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
+
+{{/*
+Return the shared home PVC name based on backend selection.
+*/}}
+{{- define "jira.sharedHome.pvcName" -}}
+{{- if eq (default "efs" .Values.jira.sharedHome.backend) "azurefile" -}}
+{{ include "jira.fullname" . }}-azurefile-pvc
+{{- else -}}
+{{ include "jira.fullname" . }}-efs-pvc
+{{- end -}}
+{{- end -}}

@@ -1,10 +1,11 @@
+{{- if or (not .Values.jira.sharedHome.backend) (eq .Values.jira.sharedHome.backend "efs") }}
 apiVersion: v1
 kind: PersistentVolume
 metadata:
   name: {{ include "jira.fullname" . }}-efs-pv
 spec:
   capacity:
-    storage: 100Gi
+    storage: {{ default "100Gi" .Values.jira.sharedHome.size }}
   volumeMode: Filesystem
   accessModes:
     - ReadWriteMany
@@ -13,3 +14,4 @@ spec:
   csi:
     driver: efs.csi.aws.com
     volumeHandle: {{ .Values.jira.sharedHome.efsFileSystemId | quote }}
+{{- end }}

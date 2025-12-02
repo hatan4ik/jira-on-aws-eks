@@ -1,0 +1,39 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: jira-repo
+  namespace: flux-system
+spec:
+  interval: 1m
+  url: https://github.com/<org>/jira-on-aws-eks.git
+  ref:
+    branch: main
+---
+apiVersion: helm.toolkit.fluxcd.io/v2beta2
+kind: HelmRelease
+metadata:
+  name: jira
+  namespace: flux-system
+spec:
+  interval: 5m
+  releaseName: jira
+  targetNamespace: jira-prod
+  chart:
+    spec:
+      chart: ./k8s/helm/jira
+      sourceRef:
+        kind: GitRepository
+        name: jira-repo
+        namespace: flux-system
+      interval: 1m
+  valuesFrom:
+    - kind: GitRepository
+      name: jira-repo
+      valuesKey: k8s/helm/jira/values.yaml
+    - kind: GitRepository
+      name: jira-repo
+      valuesKey: k8s/helm/jira/values-azure.yaml
+  install:
+    crds: CreateReplace
+  upgrade:
+    crds: CreateReplace

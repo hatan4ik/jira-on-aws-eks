@@ -1,3 +1,4 @@
+{{- if or (not .Values.jira.sharedHome.backend) (eq .Values.jira.sharedHome.backend "efs") }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -7,6 +8,7 @@ spec:
     - ReadWriteMany
   resources:
     requests:
-      storage: 100Gi
+      storage: {{ default "100Gi" .Values.jira.sharedHome.size }}
   storageClassName: ""
   volumeName: {{ include "jira.fullname" . }}-efs-pv
+{{- end }}

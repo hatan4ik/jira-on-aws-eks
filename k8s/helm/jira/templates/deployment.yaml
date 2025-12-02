@@ -47,4 +47,4 @@ spec:
       volumes:
         - name: shared-home
           persistentVolumeClaim:
-            claimName: {{ include "jira.fullname" . }}-efs-pvc
+            claimName: {{ include "jira.sharedHome.pvcName" . }}

@@ -55,5 +55,9 @@ jira:
     passwordSecretKey: "password"
     password: ""
   sharedHome:
+    backend: "efs" # options: efs (AWS), azurefile (AKS)
     efsFileSystemId: "fs-xxxxxxxx"
+    size: "100Gi"
+    azure:
+      storageClassName: "azurefile-csi"
     path: "/var/atlassian/application-data/jira"

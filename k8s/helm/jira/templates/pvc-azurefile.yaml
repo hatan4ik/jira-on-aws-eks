@@ -1,0 +1,13 @@
+{{- if eq (default "efs" .Values.jira.sharedHome.backend) "azurefile" }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "jira.fullname" . }}-azurefile-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: {{ default "100Gi" .Values.jira.sharedHome.size }}
+  storageClassName: {{ default "azurefile-csi" .Values.jira.sharedHome.azure.storageClassName | quote }}
+{{- end }}

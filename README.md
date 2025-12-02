@@ -9,8 +9,11 @@ It contains:
 - A **FAANG-style design narrative** (requirements → architecture → DevOps → ops & trade-offs).
 - A **Mermaid architecture diagram**.
 - **Terraform skeleton** for AWS (VPC, EKS, RDS, EFS, ALB controller).
+- **Terraform skeleton** for Azure (VNet, AKS, PostgreSQL Flexible Server, Azure Files).
 - A **Helm chart** for Jira Data Center on EKS.
 - An example **GitHub Actions** pipeline to deploy Jira to EKS.
+- **Azure AKS adaptation notes** in `azure/README.md` (service mapping and how to port the design).
+- **GitOps samples** for Argo CD and Flux under `gitops/`.
 
 > ⚠️ This is not production-ready out-of-the-box. It’s intentionally simplified to be easy to talk through, extend, and tune during interviews or POCs.
 
@@ -21,6 +24,28 @@ It contains:
 ```text
 jira-on-aws-eks/
 ├─ README.md
+├─ azure/
+│  ├─ README.md
+│  └─ terraform/
+│     ├─ main.tf
+│     ├─ variables.tf
+│     ├─ outputs.tf
+│     ├─ aks/
+│     │  ├─ main.tf
+│     │  ├─ variables.tf
+│     │  └─ outputs.tf
+│     ├─ network/
+│     │  ├─ main.tf
+│     │  ├─ variables.tf
+│     │  └─ outputs.tf
+│     ├─ postgres/
+│     │  ├─ main.tf
+│     │  ├─ variables.tf
+│     │  └─ outputs.tf
+│     └─ storage/
+│        ├─ main.tf
+│        ├─ variables.tf
+│        └─ outputs.tf
 ├─ docs/
 │  └─ architecture.md
 ├─ infra/
@@ -58,6 +83,7 @@ jira-on-aws-eks/
 │  │  └─ jira/
 │  │     ├─ Chart.yaml
 │  │     ├─ values.yaml
+│  │     ├─ values-azure.yaml
 │  │     ├─ values-prod.yaml
 │  │     └─ templates/
 │  │        ├─ _helpers.tpl
@@ -68,12 +94,19 @@ jira-on-aws-eks/
 │  │        ├─ secret.yaml
 │  │        ├─ pv-efs.yaml
 │  │        ├─ pvc-efs.yaml
+│  │        ├─ pvc-azurefile.yaml
 │  │        └─ hpa.yaml
 │  ├─ monitoring/
 │  │  ├─ prometheus-values.yaml
 │  │  └─ external-secrets-operator.yaml
 │  └─ backup/
 │     └─ efs-backup-cronjob.yaml
+├─ gitops/
+│  ├─ argocd/
+│  │  └─ jira-app.yaml
+│  └─ flux/
+│     ├─ jira-helmrelease.yaml
+│     └─ kustomization.yaml
 ├─ ci-cd/
 │  └─ github-actions/
 │     └─ deploy-jira.yaml
@@ -282,6 +315,8 @@ Modular Terraform structure under `infra/terraform`:
 
 Each module has its own `main.tf`, `variables.tf`, and `outputs.tf` for clean separation of concerns.
 
+An Azure skeleton lives under `azure/terraform` covering VNet/subnets, AKS, PostgreSQL Flexible Server, and Azure Files with private DNS/linking for PostgreSQL.
+
 ### 5.2 Application Deployment – Helm + GitOps
 
 Under `k8s/helm/jira`:
@@ -345,6 +380,12 @@ Under `ci-cd/github-actions/deploy-jira.yaml`:
   - Runs `helm upgrade --install` to deploy Jira into `jira-prod` namespace.
 
 This is a **minimal example**: in a real setup you’d add linting, Helm chart testing, notifications, approvals, and environment promotion (dev → staging → prod).
+
+### 5.5 GitOps – Argo CD / Flux
+
+- Argo CD `Application`: `gitops/argocd/jira-app.yaml` (uses `values.yaml` + `values-azure.yaml` overlays).
+- Flux `HelmRelease`: `gitops/flux/jira-helmrelease.yaml` with `kustomization.yaml`.
+- Update repo URL/branch and secrets before applying; combine with environment-specific value files (AWS, Azure) as needed.
 
 ---
 
@@ -490,10 +531,11 @@ If you walk them logically through these steps, with this repo as a concrete anc
    - Domain and TLS secret.
 
 5. **Deploy Jira**  
-   ```bash
-   cd k8s/helm/jira
-   helm upgrade --install jira . -n jira-prod --create-namespace
-   ```
+```bash
+cd k8s/helm/jira
+helm upgrade --install jira . -n jira-prod --create-namespace
+```
 
 From here you can iterate, tune, and extend as if you’re doing a real FAANG-level platform design.
 
+> Azure path: use `azure/terraform` to provision VNet/AKS/PostgreSQL/Files, then deploy with `values.yaml` + `values-azure.yaml` (manually or via the Argo CD / Flux examples in `gitops/`).

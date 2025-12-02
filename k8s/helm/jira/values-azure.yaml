@@ -1,0 +1,32 @@
+replicaCount: 2
+
+ingress:
+  enabled: true
+  className: azure-application-gateway
+  annotations:
+    kubernetes.io/ingress.class: azure/application-gateway
+    appgw.ingress.kubernetes.io/request-timeout: "300"
+  hosts:
+    - host: jira.azure.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - hosts:
+        - jira.azure.example.com
+      secretName: jira-tls-azure
+
+jira:
+  db:
+    host: "jira-pg.postgres.database.azure.com"
+    port: 5432
+    name: "jira"
+    user: "jira_admin"
+    passwordSecretName: "jira-db-secret"
+    passwordSecretKey: "password"
+  sharedHome:
+    backend: "azurefile"
+    size: "200Gi"
+    azure:
+      storageClassName: "azurefile-csi"
+    path: "/var/atlassian/application-data/jira"
