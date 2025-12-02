@@ -28,17 +28,33 @@ jira-on-aws-eks/
 │     ├─ main.tf
 │     ├─ variables.tf
 │     ├─ outputs.tf
-│     ├─ network.tf
-│     ├─ eks.tf
-│     ├─ rds.tf
-│     ├─ efs.tf
-│     └─ alb-ingress-controller.tf
+│     ├─ network/
+│     │  ├─ main.tf
+│     │  ├─ variables.tf
+│     │  └─ outputs.tf
+│     ├─ eks/
+│     │  ├─ main.tf
+│     │  ├─ variables.tf
+│     │  └─ outputs.tf
+│     ├─ rds/
+│     │  ├─ main.tf
+│     │  ├─ variables.tf
+│     │  └─ outputs.tf
+│     ├─ efs/
+│     │  ├─ main.tf
+│     │  ├─ variables.tf
+│     │  └─ outputs.tf
+│     └─ alb-ingress-controller/
+│        ├─ main.tf
+│        ├─ variables.tf
+│        └─ outputs.tf
 ├─ k8s/
 │  └─ helm/
 │     └─ jira/
 │        ├─ Chart.yaml
 │        ├─ values.yaml
 │        └─ templates/
+│           ├─ _helpers.tpl
 │           ├─ deployment.yaml
 │           ├─ service.yaml
 │           ├─ ingress.yaml
@@ -194,10 +210,11 @@ Relevant files in this repo:
 
 ### 4.1 VPC Design
 
-Terraform files:
+Terraform modules:
 
-- `infra/terraform/network.tf`
-- `infra/terraform/variables.tf`
+- `infra/terraform/network/` - VPC, subnets, NAT gateways, routing
+- `infra/terraform/main.tf` - orchestrates all modules
+- `infra/terraform/variables.tf` - global configuration
 
 Key points:
 
@@ -212,7 +229,7 @@ Key points:
 
 ### 4.2 RDS / Aurora PostgreSQL
 
-Terraform stub: `infra/terraform/rds.tf`
+Terraform module: `infra/terraform/rds/`
 
 - Engine: PostgreSQL (or Aurora PostgreSQL for better scaling).
 - **Multi-AZ**, encrypted, deletion protection enabled.
@@ -221,7 +238,7 @@ Terraform stub: `infra/terraform/rds.tf`
 
 ### 4.3 EFS for Shared Jira Home
 
-Terraform stub: `infra/terraform/efs.tf`
+Terraform module: `infra/terraform/efs/`
 
 - Single EFS file system:
   - Encrypted at rest.
@@ -238,16 +255,18 @@ The repo separates **infrastructure** from **application**.
 
 ### 5.1 Infrastructure as Code – Terraform
 
-Under `infra/terraform`:
+Modular Terraform structure under `infra/terraform`:
 
-- `main.tf` wires up the higher-level modules:
-  - **Network** (VPC, subnets).
-  - **EKS** cluster & node group.
-  - **RDS** for Jira DB.
-  - **EFS** for shared home.
-  - Placeholder **ALB controller** IAM role.
-- `variables.tf` defines inputs (region, CIDRs, DB credentials).
-- `outputs.tf` exposes cluster name, DB endpoint, EFS ID.
+- `main.tf` orchestrates all modules:
+  - **network/** - VPC, subnets, NAT gateways, routing
+  - **eks/** - EKS cluster & node groups with IAM roles
+  - **rds/** - PostgreSQL database with security groups
+  - **efs/** - Shared file system with mount targets
+  - **alb-ingress-controller/** - AWS Load Balancer Controller IAM setup
+- `variables.tf` defines global inputs (region, CIDRs, DB credentials)
+- `outputs.tf` exposes cluster name, DB endpoint, EFS ID
+
+Each module has its own `main.tf`, `variables.tf`, and `outputs.tf` for clean separation of concerns.
 
 ### 5.2 Application Deployment – Helm + GitOps
 
