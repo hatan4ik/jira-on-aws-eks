@@ -1,0 +1,72 @@
+# FAANG Security: Network segmentation and isolation
+{{- if .Values.resilience.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "jira.fullname" . }}-network-policy
+  labels:
+    {{- include "jira.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "jira.selectorLabels" . | nindent 6 }}
+  
+  policyTypes:
+  - Ingress
+  - Egress
+  
+  # Ingress rules - only allow specific sources
+  ingress:
+  - from:
+    # Allow ingress controller
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    # Allow monitoring
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    # Allow same namespace
+    - namespaceSelector:
+        matchLabels:
+          name: {{ .Release.Namespace }}
+    ports:
+    - protocol: TCP
+      port: 8080
+  
+  # Egress rules - principle of least privilege
+  egress:
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  
+  # Allow database access
+  - to: []
+    ports:
+    - protocol: TCP
+      port: {{ .Values.jira.db.port }}
+  
+  # Allow EFS access
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 2049
+  
+  # Allow HTTPS for external APIs
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+  
+  # Allow monitoring scraping
+  {{- range .Values.resilience.networkPolicy.allowedNamespaces }}
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: {{ . }}
+  {{- end }}
+{{- end }}

@@ -1,0 +1,109 @@
+# REFACTORED: SOLID-compliant configuration
+replicaCount: 3
+
+# SRP: Separate image configuration
+image:
+  repository: atlassian/jira-software
+  tag: "9.0.0"
+  pullPolicy: IfNotPresent
+
+# Circuit breaker configuration - ISP compliant
+circuitBreaker:
+  enabled: true
+  maxCpu: "20"
+  maxMemory: "40Gi"
+  maxPVCs: "10"
+  maxPods: "20"
+  minAvailable: 2
+  
+# Health check with exponential backoff
+healthCheck:
+  enabled: true
+  maxRetries: 5
+  backoffBase: 2
+  timeoutSeconds: 30
+  
+# Resilience patterns
+resilience:
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 2
+  networkPolicy:
+    enabled: true
+    allowedNamespaces: ["monitoring", "kube-system"]
+  
+# Resource management - DIP compliant
+resources:
+  requests:
+    cpu: "2"
+    memory: "8Gi"
+  limits:
+    cpu: "4"
+    memory: "16Gi"
+
+# Auto-scaling with circuit breaker
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+
+# Database connection with circuit breaker
+jira:
+  jvmMaxHeap: "12g"
+  db:
+    # Use RDS Proxy for connection pooling and circuit breaking
+    host: "jira-proxy.proxy-xxxxxxxx.us-east-1.rds.amazonaws.com"
+    port: 5432
+    name: "jira"
+    user: "jira_user"
+    passwordSecretName: "jira-db-secret"
+    passwordSecretKey: "password"
+    connectionPool:
+      maxConnections: 100
+      minConnections: 10
+      idleTimeout: 300
+  
+  # Storage with backup strategy
+  sharedHome:
+    efsFileSystemId: "fs-xxxxxxxx"
+    path: "/var/atlassian/application-data/jira"
+    backup:
+      enabled: true
+      schedule: "0 2 * * *"
+      retention: "30d"
+
+# Monitoring and observability
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    path: /status
+  alerts:
+    enabled: true
+    rules:
+      - alert: JiraHighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+      - alert: JiraHighLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning

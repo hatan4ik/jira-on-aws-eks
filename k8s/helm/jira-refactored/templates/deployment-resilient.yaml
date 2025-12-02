@@ -1,0 +1,154 @@
+# REFACTORED: Resilient deployment with FAANG patterns
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "jira.fullname" . }}
+  labels:
+    {{- include "jira.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0  # Zero-downtime deployments
+  selector:
+    matchLabels:
+      {{- include "jira.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "jira.selectorLabels" . | nindent 8 }}
+    spec:
+      # Anti-affinity for resilience
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                - {{ include "jira.name" . }}
+            topologyKey: kubernetes.io/hostname
+      
+      # Init container for health checks and dependencies
+      initContainers:
+      - name: wait-for-dependencies
+        image: busybox:1.35
+        command:
+        - /bin/sh
+        - -c
+        - |
+          # Exponential backoff for dependency checks - O(log n)
+          MAX_RETRIES={{ .Values.healthCheck.maxRetries }}
+          BACKOFF_BASE={{ .Values.healthCheck.backoffBase }}
+          
+          for i in $(seq 0 $((MAX_RETRIES-1))); do
+            if nc -z {{ .Values.jira.db.host }} {{ .Values.jira.db.port }}; then
+              echo "Database is ready"
+              exit 0
+            fi
+            
+            WAIT_TIME=$((BACKOFF_BASE ** i))
+            echo "Database not ready, waiting ${WAIT_TIME}s..."
+            sleep $WAIT_TIME
+          done
+          
+          echo "Database failed to become ready after $MAX_RETRIES attempts"
+          exit 1
+      
+      containers:
+      - name: jira
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        
+        # Resource limits with circuit breaker
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+        
+        # Health checks with exponential backoff
+        livenessProbe:
+          httpGet:
+            path: /status
+            port: 8080
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          timeoutSeconds: {{ .Values.healthCheck.timeoutSeconds }}
+          failureThreshold: {{ .Values.healthCheck.maxRetries }}
+          
+        readinessProbe:
+          httpGet:
+            path: /status
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: {{ .Values.healthCheck.timeoutSeconds }}
+          failureThreshold: 3
+        
+        # Startup probe for slow-starting applications
+        startupProbe:
+          httpGet:
+            path: /status
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: {{ .Values.healthCheck.timeoutSeconds }}
+          failureThreshold: 30  # Allow 5 minutes for startup
+        
+        env:
+        - name: JVM_MINIMUM_MEMORY
+          value: {{ .Values.jira.jvmMaxHeap | quote }}
+        - name: JVM_MAXIMUM_MEMORY
+          value: {{ .Values.jira.jvmMaxHeap | quote }}
+        - name: ATL_DB_TYPE
+          value: "postgres72"
+        - name: ATL_JDBC_URL
+          value: "jdbc:postgresql://{{ .Values.jira.db.host }}:{{ .Values.jira.db.port }}/{{ .Values.jira.db.name }}?connectTimeout=30&socketTimeout=60"
+        - name: ATL_JDBC_USER
+          value: {{ .Values.jira.db.user | quote }}
+        - name: ATL_JDBC_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.jira.db.passwordSecretName }}
+              key: {{ .Values.jira.db.passwordSecretKey }}
+        
+        # Connection pool settings for circuit breaker
+        - name: ATL_DB_MAXPOOLSIZE
+          value: {{ .Values.jira.db.connectionPool.maxConnections | quote }}
+        - name: ATL_DB_MINPOOLSIZE
+          value: {{ .Values.jira.db.connectionPool.minConnections | quote }}
+        
+        ports:
+        - containerPort: 8080
+          name: http
+        
+        volumeMounts:
+        - name: shared-home
+          mountPath: {{ .Values.jira.sharedHome.path }}
+        
+        # Graceful shutdown
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /bin/sh
+              - -c
+              - |
+                # Graceful shutdown with timeout
+                curl -X POST http://localhost:8080/rest/api/2/cluster/shutdown
+                sleep 30
+      
+      volumes:
+      - name: shared-home
+        persistentVolumeClaim:
+          claimName: {{ include "jira.fullname" . }}-efs-pvc
+      
+      # Security context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 2001
+        fsGroup: 2001
+      
+      # Termination grace period for graceful shutdown
+      terminationGracePeriodSeconds: 60
