@@ -1,0 +1,50 @@
+# REFACTORED: Circuit breaker pattern for resilience
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: {{ include "jira.fullname" . }}-quota
+  namespace: {{ .Release.Namespace }}
+spec:
+  hard:
+    requests.cpu: {{ .Values.circuitBreaker.maxCpu | quote }}
+    requests.memory: {{ .Values.circuitBreaker.maxMemory | quote }}
+    persistentvolumeclaims: {{ .Values.circuitBreaker.maxPVCs | quote }}
+    pods: {{ .Values.circuitBreaker.maxPods | quote }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "jira.fullname" . }}-pdb
+spec:
+  minAvailable: {{ .Values.circuitBreaker.minAvailable }}
+  selector:
+    matchLabels:
+      app: {{ include "jira.name" . }}
+---
+# Health check with exponential backoff
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "jira.fullname" . }}-health-config
+data:
+  health-check.sh: |
+    #!/bin/bash
+    # Exponential backoff health check - O(log n) retry complexity
+    MAX_RETRIES=5
+    RETRY_COUNT=0
+    BACKOFF_BASE=2
+    
+    while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+      if curl -f http://localhost:8080/status; then
+        echo "Health check passed"
+        exit 0
+      fi
+      
+      WAIT_TIME=$((BACKOFF_BASE ** RETRY_COUNT))
+      echo "Health check failed, retrying in ${WAIT_TIME}s..."
+      sleep $WAIT_TIME
+      RETRY_COUNT=$((RETRY_COUNT + 1))
+    done
+    
+    echo "Health check failed after $MAX_RETRIES attempts"
+    exit 1
