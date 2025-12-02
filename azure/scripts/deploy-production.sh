@@ -1,105 +1,126 @@
 #!/bin/bash
-set -e
+set -eo pipefail
 
 echo "🚀 Deploying Jira Production Environment on Azure"
 
-# Variables
-BACKEND_RG="jira-tf-state-rg"
-BACKEND_STORAGE_ACCOUNT="jiratfstate$RANDOM"
-BACKEND_CONTAINER="tfstate"
-LOCATION="eastus"
+# --- Configuration ---
+# These variables can be customized or passed as environment variables.
+: "${LOCATION:=eastus}"
+: "${PREFIX:=jira}"
+: "${TERRAFORM_STATE_RG:=${PREFIX}-tf-state-rg}"
+: "${TERRAFORM_STATE_CONTAINER:=tfstate}"
+# Generate a unique, but predictable, storage account name
+UNIQUE_HASH=$(echo -n "$TERRAFORM_STATE_RG" | shasum | head -c 6)
+: "${TERRAFORM_STATE_ACCOUNT:=${PREFIX}tfstate${UNIQUE_HASH}}"
 
-# Phase 1: Setup Terraform Backend (One-time)
+# --- Phase 1: Setup Terraform Backend ---
 echo "📦 Phase 1: Setting up Terraform Backend..."
-if ! az group show --name $BACKEND_RG &>/dev/null; then
-    echo "Creating backend resource group..."
-    az group create --name $BACKEND_RG --location $LOCATION
-    
-    echo "Creating backend storage account..."
-    az storage account create \
-        --name $BACKEND_STORAGE_ACCOUNT \
-        --resource-group $BACKEND_RG \
-        --location $LOCATION \
-        --sku Standard_LRS \
-        --encryption-services blob
-    
-    echo "Creating backend container..."
-    az storage container create \
-        --name $BACKEND_CONTAINER \
-        --account-name $BACKEND_STORAGE_ACCOUNT
-    
-    echo "✅ Backend storage created: $BACKEND_STORAGE_ACCOUNT"
+if ! az group show --name "$TERRAFORM_STATE_RG" &>/dev/null; then
+    echo "Creating backend resource group: $TERRAFORM_STATE_RG"
+    az group create --name "$TERRAFORM_STATE_RG" --location "$LOCATION" --output none
 else
-    echo "Backend already exists, using existing storage..."
-    BACKEND_STORAGE_ACCOUNT=$(az storage account list --resource-group $BACKEND_RG --query "[0].name" -o tsv)
+    echo "Backend resource group '$TERRAFORM_STATE_RG' already exists."
 fi
 
-# Phase 2: Initialize and Apply Terraform
-echo "🏗️ Phase 2: Deploying Infrastructure..."
+if ! az storage account show --name "$TERRAFORM_STATE_ACCOUNT" --resource-group "$TERRAFORM_STATE_RG" &>/dev/null; then
+    echo "Creating backend storage account: $TERRAFORM_STATE_ACCOUNT"
+    az storage account create \
+        --name "$TERRAFORM_STATE_ACCOUNT" \
+        --resource-group "$TERRAFORM_STATE_RG" \
+        --location "$LOCATION" \
+        --sku Standard_LRS \
+        --encryption-services blob \
+        --output none
+    
+    echo "Creating backend container: $TERRAFORM_STATE_CONTAINER"
+    # Wait for the storage account to be provisionable
+    sleep 5 
+    az storage container create \
+        --name "$TERRAFORM_STATE_CONTAINER" \
+        --account-name "$TERRAFORM_STATE_ACCOUNT" \
+        --auth-mode login \
+        --output none
+else
+    echo "Backend storage account '$TERRAFORM_STATE_ACCOUNT' already exists."
+fi
+echo "✅ Backend setup complete."
+
+
+# --- Phase 2: Initialize and Apply Terraform ---
+echo "🏗️ Phase 2: Deploying Infrastructure via Terraform..."
 cd azure/terraform
 
 terraform init \
-    -backend-config="resource_group_name=$BACKEND_RG" \
-    -backend-config="storage_account_name=$BACKEND_STORAGE_ACCOUNT" \
-    -backend-config="container_name=$BACKEND_CONTAINER" \
+    -backend-config="resource_group_name=$TERRAFORM_STATE_RG" \
+    -backend-config="storage_account_name=$TERRAFORM_STATE_ACCOUNT" \
+    -backend-config="container_name=$TERRAFORM_STATE_CONTAINER" \
     -backend-config="key=jira.prod.tfstate"
+
+# Ensure prod.tfvars exists
+if [ ! -f "prod.tfvars" ]; then
+    echo "❌ Error: prod.tfvars not found. Please create it from prod.tfvars.example."
+    exit 1
+fi
 
 terraform plan -var-file="prod.tfvars"
 terraform apply -var-file="prod.tfvars" -auto-approve
 
 # Get outputs
+echo "🔍 Capturing Terraform outputs..."
 AKS_CLUSTER_NAME=$(terraform output -raw aks_cluster_name)
 RESOURCE_GROUP=$(terraform output -raw resource_group_name)
 POSTGRES_FQDN=$(terraform output -raw postgres_fqdn)
-STORAGE_ACCOUNT=$(terraform output -raw storage_account)
+STORAGE_SHARE_NAME=$(terraform output -raw storage_share_name)
+APP_GATEWAY_NAME=$(terraform output -raw app_gateway_name)
+SUBSCRIPTION_ID=$(az account show --query id -o tsv)
 
 echo "✅ Infrastructure deployed"
-echo "   AKS Cluster: $AKS_CLUSTER_NAME"
-echo "   Resource Group: $RESOURCE_GROUP"
-echo "   PostgreSQL: $POSTGRES_FQDN"
-echo "   Storage Account: $STORAGE_ACCOUNT"
+echo "   AKS Cluster: $AKS_CLUSTER_NAME in $RESOURCE_GROUP"
+echo "   PostgreSQL FQDN: $POSTGRES_FQDN"
 
-# Phase 3: Configure kubectl
+
+# --- Phase 3: Configure kubectl ---
 echo "🔧 Phase 3: Configuring kubectl..."
-az aks get-credentials --resource-group $RESOURCE_GROUP --name $AKS_CLUSTER_NAME --overwrite-existing
+az aks get-credentials --resource-group "$RESOURCE_GROUP" --name "$AKS_CLUSTER_NAME" --overwrite-existing
 
-# Phase 4: Install CSI Drivers and AGIC
-echo "🔌 Phase 4: Installing Azure integrations..."
-# Install Azure Files CSI Driver
-kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/azurefile-csi-driver/master/deploy/example/storageclass-azurefile-csi.yaml
 
-# Install Application Gateway Ingress Controller
+# --- Phase 4: Install AGIC via Helm ---
+# Note: For a fully production setup, the Azure File CSI driver should be enabled via Terraform.
+# The AGIC installation here assumes Workload Identity is enabled on the cluster.
+echo "🔌 Phase 4: Installing Application Gateway Ingress Controller (AGIC)..."
 helm repo add application-gateway-kubernetes-ingress https://appgwingress.blob.core.windows.net/ingress-azure-helm-package/
 helm repo update
-helm install ingress-azure application-gateway-kubernetes-ingress/ingress-azure \
-    --namespace default \
-    --set appgw.name=jira-prod-appgw \
-    --set appgw.resourceGroup=$RESOURCE_GROUP \
-    --set appgw.subscriptionId=$(az account show --query id -o tsv) \
-    --set armAuth.type=servicePrincipal
 
-# Phase 5: Deploy Jira
+helm upgrade --install ingress-azure application-gateway-kubernetes-ingress/ingress-azure \
+    --namespace default \
+    --set appgw.name="$APP_GATEWAY_NAME" \
+    --set appgw.resourceGroup="$RESOURCE_GROUP" \
+    --set appgw.subscriptionId="$SUBSCRIPTION_ID" \
+    --set armAuth.type=workloadIdentity \
+    --set armAuth.identityClientId=$(terraform output -raw agic_identity_client_id)
+echo "✅ AGIC installed."
+
+
+# --- Phase 5: Deploy Jira via Helm ---
 echo "🎯 Phase 5: Deploying Jira..."
 cd ../../k8s/helm/jira
-
-# Update values with actual infrastructure outputs
-sed -i "s/jira-prod-postgres.postgres.database.azure.com/$POSTGRES_FQDN/g" values-azure.yaml
-sed -i "s/jiraprodstorageacct/$STORAGE_ACCOUNT/g" values-azure.yaml
 
 helm upgrade --install jira . \
     --namespace jira-prod \
     --create-namespace \
-    --values values.yaml \
-    --values values-azure.yaml
+    -f values.yaml \
+    -f values-azure.yaml \
+    --set jira.database.host="$POSTGRES_FQDN" \
+    --set jira.sharedHome.azureFile.shareName="$STORAGE_SHARE_NAME"
 
 echo "🎉 Azure production deployment complete!"
 echo ""
 echo "📋 Next Steps:"
-echo "1. Configure DNS to point to Application Gateway"
-echo "2. Upload Jira license via UI"
-echo "3. Run initial setup wizard"
-echo "4. Configure Azure AD SSO integration"
+echo "1. Configure your DNS provider to create a CNAME record pointing to the Application Gateway's public IP."
+echo "2. Upload your Jira license via the UI."
+echo "3. Run the initial Jira setup wizard."
 echo ""
 echo "🔍 Access Information:"
-echo "   Jira URL: https://jira.company.com"
+echo "   Jira URL: https://<your-jira-dns-name>"
+echo "   Get App Gateway IP: az network public-ip show --resource-group $RESOURCE_GROUP --name ${APP_GATEWAY_NAME}-pip --query ipAddress -o tsv"
 echo "   AKS Dashboard: az aks browse --resource-group $RESOURCE_GROUP --name $AKS_CLUSTER_NAME"
