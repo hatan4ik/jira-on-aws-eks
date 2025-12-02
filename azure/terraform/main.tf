@@ -1,16 +1,20 @@
 data "azurerm_client_config" "current" {}
 
 locals {
-  tags = {
-    project = "jira"
-    env     = "prod"
-  }
+  # Merge default tags with user-provided tags. User tags will override defaults.
+  merged_tags = merge(
+    {
+      project = "jira"
+      env     = "prod"
+    },
+    var.tags
+  )
 }
 
 resource "azurerm_resource_group" "this" {
   name     = var.resource_group_name
   location = var.location
-  tags     = local.tags
+  tags     = local.merged_tags
 }
 
 module "network" {
@@ -23,7 +27,7 @@ module "network" {
   db_subnet_cidr      = var.db_subnet_cidr
   appgw_subnet_cidr   = var.appgw_subnet_cidr
   admin_ip_address    = var.admin_ip_address
-  tags                = local.tags
+  tags                = local.merged_tags
 }
 
 module "monitoring" {
@@ -31,7 +35,7 @@ module "monitoring" {
   resource_group_name = azurerm_resource_group.this.name
   location            = var.location
   prefix              = var.prefix
-  tags                = local.tags
+  tags                = local.merged_tags
 }
 
 module "keyvault" {
@@ -42,12 +46,15 @@ module "keyvault" {
   tenant_id               = data.azurerm_client_config.current.tenant_id
   principal_id            = data.azurerm_client_config.current.object_id
   postgres_admin_password = var.postgres_admin_password
-  tags                    = local.tags
+  tags                    = local.merged_tags
 }
 
 data "azurerm_key_vault_secret" "postgres_password" {
   name         = "postgres-admin-password"
   key_vault_id = module.keyvault.key_vault_id
+  depends_on = [
+    module.keyvault
+  ]
 }
 
 module "aks" {
@@ -67,7 +74,7 @@ module "aks" {
   log_analytics_workspace_id   = module.monitoring.log_analytics_workspace_id
   enable_oidc_issuer           = var.aks_enable_oidc_issuer
   enable_workload_identity     = var.aks_enable_workload_identity
-  tags                         = local.tags
+  tags                         = local.merged_tags
 }
 
 module "postgres" {
@@ -85,7 +92,8 @@ module "postgres" {
   backup_retention_days      = var.postgres_backup_retention_days
   geo_redundant_backup       = var.postgres_geo_redundant_backup
   database_name              = var.postgres_database_name
-  tags                       = local.tags
+  tags                       = local.merged_tags
+  availability_zone          = "1" # Or make this a variable
 }
 
 module "storage" {
@@ -95,5 +103,16 @@ module "storage" {
   prefix              = var.prefix
   replication_type    = var.storage_account_replication_type
   file_share_quota_gb = var.file_share_quota_gb
-  tags                = local.tags
+  tags                = local.merged_tags
+  vnet_id             = module.network.vnet_id
+  aks_subnet_id       = module.network.aks_subnet_id
+}
+
+module "appgw" {
+  source              = "./appgw"
+  resource_group_name = azurerm_resource_group.this.name
+  location            = var.location
+  prefix              = var.prefix
+  subnet_id           = module.network.appgw_subnet_id
+  tags                = local.merged_tags
 }

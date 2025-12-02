@@ -1,32 +1,9 @@
-variable "resource_group_name" {
-  description = "Resource group for storage."
+variable "vnet_id" {
+  description = "ID of the virtual network to link the private DNS zone to."
   type        = string
 }
 
-variable "location" {
-  description = "Azure region."
+variable "aks_subnet_id" {
+  description = "ID of the AKS subnet to deploy the private endpoint into."
   type        = string
-}
-
-variable "prefix" {
-  description = "Resource name prefix."
-  type        = string
-}
-
-variable "replication_type" {
-  description = "Storage account replication (LRS, ZRS)."
-  type        = string
-  default     = "ZRS"
-}
-
-variable "file_share_quota_gb" {
-  description = "Quota for the Azure Files share in GB."
-  type        = number
-  default     = 512
-}
-
-variable "tags" {
-  description = "Tags to apply."
-  type        = map(string)
-  default     = {}
 }
