@@ -23,12 +23,6 @@ variable "principal_id" {
   type        = string
 }
 
-variable "postgres_admin_password" {
-  description = "Admin password for PostgreSQL."
-  type        = string
-  sensitive   = true
-}
-
 variable "tags" {
   description = "Tags to apply."
   type        = map(string)

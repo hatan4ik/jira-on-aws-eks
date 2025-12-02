@@ -45,7 +45,6 @@ module "keyvault" {
   prefix                  = var.prefix
   tenant_id               = data.azurerm_client_config.current.tenant_id
   principal_id            = data.azurerm_client_config.current.object_id
-  postgres_admin_password = var.postgres_admin_password
   tags                    = local.merged_tags
 }
 
