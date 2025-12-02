@@ -69,3 +69,12 @@ module "alb_ingress_controller" {
 
   project_name = var.project_name
 }
+
+# Secrets Manager for secure credential storage
+module "secrets_manager" {
+  source = "./secrets-manager"
+
+  project_name      = var.project_name
+  jira_db_password  = var.jira_db_password
+  jira_license_key  = var.jira_license_key
+}

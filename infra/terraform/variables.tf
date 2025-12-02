@@ -99,3 +99,10 @@ variable "rds_backup_retention_period" {
   type        = number
   default     = 7
 }
+
+variable "jira_license_key" {
+  description = "Jira Data Center license key"
+  type        = string
+  sensitive   = true
+  default     = ""
+}

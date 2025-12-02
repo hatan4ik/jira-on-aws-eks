@@ -1,0 +1,27 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: jira-efs-backup
+  namespace: jira-prod
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: efs-backup-sa
+          containers:
+          - name: aws-cli
+            image: amazon/aws-cli:latest
+            command:
+            - /bin/sh
+            - -c
+            - |
+              aws efs put-backup-policy --file-system-id ${EFS_ID} --backup-policy Status=ENABLED
+              aws datasync start-task-execution --task-arn ${DATASYNC_TASK_ARN}
+            env:
+            - name: EFS_ID
+              value: "fs-xxxxxxxx"  # Replace with actual EFS ID
+            - name: DATASYNC_TASK_ARN
+              value: "arn:aws:datasync:us-east-1:123456789012:task/task-xxxxxxxx"
+          restartPolicy: OnFailure

@@ -1,4 +1,4 @@
-replicaCount: 2
+replicaCount: 3
 
 image:
   repository: atlassian/jira-software
@@ -18,15 +18,16 @@ ingress:
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80,"HTTPS":443}]'
     alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:123456789012:certificate/xxxxxxxx"
   hosts:
-    - host: jira.example.com
+    - host: jira.company.com
       paths:
         - path: /
           pathType: Prefix
   tls:
     - hosts:
-        - jira.example.com
-      secretName: jira-tls-placeholder
+        - jira.company.com
+      secretName: jira-tls
 
 resources:
   requests:
@@ -38,22 +39,28 @@ resources:
 
 autoscaling:
   enabled: true
-  minReplicas: 2
-  maxReplicas: 6
+  minReplicas: 3
+  maxReplicas: 10
   targetCPUUtilizationPercentage: 70
   targetMemoryUtilizationPercentage: 80
 
 jira:
-  jvmMaxHeap: "8g"
+  jvmMaxHeap: "12g"
   db:
-    host: "jira-db.example.internal"
+    host: "jira-prod-db.cluster-xxxxxxxx.us-east-1.rds.amazonaws.com"
     port: 5432
     name: "jira"
     user: "jira_user"
-    # Use AWS Secrets Manager for production
     passwordSecretName: "jira-db-secret"
     passwordSecretKey: "password"
     password: ""
   sharedHome:
     efsFileSystemId: "fs-xxxxxxxx"
     path: "/var/atlassian/application-data/jira"
+
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    path: /status

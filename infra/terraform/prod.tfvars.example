@@ -1,0 +1,29 @@
+# Production Terraform Variables
+project_name = "jira-prod"
+aws_region   = "us-east-1"
+
+# Network Configuration
+vpc_cidr             = "10.0.0.0/16"
+public_subnet_cidrs  = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
+private_subnet_cidrs = ["10.0.11.0/24", "10.0.12.0/24", "10.0.13.0/24"]
+availability_zones   = ["us-east-1a", "us-east-1b", "us-east-1c"]
+
+# EKS Configuration
+eks_cluster_version    = "1.30"
+eks_node_instance_type = "m5.2xlarge"
+eks_node_desired_size  = 3
+eks_node_min_size      = 3
+eks_node_max_size      = 10
+
+# Database Configuration
+jira_db_name     = "jira"
+jira_db_username = "jira_user"
+jira_db_password = "CHANGE_ME_SECURE_PASSWORD"
+
+# RDS Configuration
+rds_instance_class          = "db.r5.xlarge"
+rds_allocated_storage       = 500
+rds_backup_retention_period = 30
+
+# Secrets
+jira_license_key = "YOUR_JIRA_DATA_CENTER_LICENSE_KEY"
