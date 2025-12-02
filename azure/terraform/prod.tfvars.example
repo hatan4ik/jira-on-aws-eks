@@ -1,0 +1,36 @@
+# Production Azure Terraform Variables
+resource_group_name = "jira-prod-rg"
+location           = "eastus"
+prefix             = "jira-prod"
+
+# Network Configuration
+vnet_cidr         = "10.20.0.0/16"
+aks_subnet_cidr   = "10.20.1.0/24"
+db_subnet_cidr    = "10.20.2.0/24"
+appgw_subnet_cidr = "10.20.3.0/24"
+
+# Replace with your public IP for management access
+admin_ip_address = "203.0.113.1/32"
+
+# AKS Configuration
+aks_kubernetes_version           = "1.30.3"
+aks_node_vm_size                = "Standard_D4s_v5"
+aks_system_node_pool_min_count  = 2
+aks_system_node_pool_max_count  = 5
+aks_user_node_pool_vm_size      = "Standard_D8s_v5"
+aks_user_node_pool_min_count    = 3
+aks_user_node_pool_max_count    = 10
+
+# PostgreSQL Configuration
+postgres_version                = "15"
+postgres_sku_name              = "GP_Standard_D4s_v3"
+postgres_storage_mb            = 131072
+postgres_backup_retention_days = 30
+postgres_geo_redundant_backup  = true
+postgres_admin_user            = "jira_admin"
+postgres_admin_password        = "CHANGE_ME_SECURE_PASSWORD_123!"
+postgres_database_name         = "jira"
+
+# Storage Configuration
+storage_account_replication_type = "ZRS"
+file_share_quota_gb             = 1024

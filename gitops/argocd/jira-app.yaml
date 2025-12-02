@@ -1,18 +1,25 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: jira
+  name: jira-azure
   namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
   source:
-    repoURL: https://github.com/<org>/jira-on-aws-eks.git
+    repoURL: https://github.com/your-org/jira-on-aws-eks.git
     targetRevision: main
     path: k8s/helm/jira
     helm:
       valueFiles:
         - values.yaml
         - values-azure.yaml
+      parameters:
+        - name: jira.db.host
+          value: "jira-prod-postgres.postgres.database.azure.com"
+        - name: jira.sharedHome.azureFiles.storageAccountName
+          value: "jiraprodstorageacct"
   destination:
     server: https://kubernetes.default.svc
     namespace: jira-prod
@@ -22,3 +29,11 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

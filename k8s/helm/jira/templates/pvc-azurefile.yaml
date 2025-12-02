@@ -1,13 +1,40 @@
-{{- if eq (default "efs" .Values.jira.sharedHome.backend) "azurefile" }}
+{{- if .Values.jira.sharedHome.azureFiles }}
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ include "jira.fullname" . }}-azurefile-pv
+spec:
+  capacity:
+    storage: 1Ti
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: azurefile-csi-premium
+  csi:
+    driver: file.csi.azure.com
+    readOnly: false
+    volumeHandle: {{ .Values.jira.sharedHome.azureFiles.storageAccountName }}-{{ .Values.jira.sharedHome.azureFiles.shareName }}
+    volumeAttributes:
+      resourceGroup: {{ .Values.resourceGroupName | default "jira-prod-rg" }}
+      storageAccount: {{ .Values.jira.sharedHome.azureFiles.storageAccountName }}
+      shareName: {{ .Values.jira.sharedHome.azureFiles.shareName }}
+      protocol: nfs
+    nodeStageSecretRef:
+      name: {{ .Values.jira.sharedHome.azureFiles.secretName }}
+      namespace: {{ .Release.Namespace }}
+---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: {{ include "jira.fullname" . }}-azurefile-pvc
+  labels:
+    app: {{ include "jira.name" . }}
 spec:
   accessModes:
     - ReadWriteMany
+  storageClassName: azurefile-csi-premium
   resources:
     requests:
-      storage: {{ default "100Gi" .Values.jira.sharedHome.size }}
-  storageClassName: {{ default "azurefile-csi" .Values.jira.sharedHome.azure.storageClassName | quote }}
+      storage: 1Ti
+  volumeName: {{ include "jira.fullname" . }}-azurefile-pv
 {{- end }}

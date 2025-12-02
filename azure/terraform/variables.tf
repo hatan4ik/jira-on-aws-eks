@@ -40,14 +40,24 @@ variable "appgw_subnet_cidr" {
 }
 
 variable "admin_ip_address" {
-  description = "Admin IP address for SSH access to AKS nodes."
+  description = "Admin IP address for management access (CIDR format)."
   type        = string
+  
+  validation {
+    condition     = can(cidrhost(var.admin_ip_address, 0))
+    error_message = "Admin IP address must be a valid CIDR block (e.g., 203.0.113.1/32)."
+  }
 }
 
 variable "aks_kubernetes_version" {
   description = "Kubernetes version for the AKS cluster."
   type        = string
-  default     = "1.29.7"
+  default     = "1.30.3"
+  
+  validation {
+    condition     = can(regex("^1\\.(2[89]|3[0-9])\\.[0-9]+$", var.aks_kubernetes_version))
+    error_message = "Kubernetes version must be 1.28.x or higher."
+  }
 }
 
 variable "aks_node_vm_size" {
@@ -101,7 +111,12 @@ variable "aks_enable_workload_identity" {
 variable "postgres_version" {
   description = "PostgreSQL engine major version."
   type        = string
-  default     = "14"
+  default     = "15"
+  
+  validation {
+    condition     = contains(["13", "14", "15", "16"], var.postgres_version)
+    error_message = "PostgreSQL version must be 13, 14, 15, or 16."
+  }
 }
 
 variable "postgres_sku_name" {
@@ -138,6 +153,11 @@ variable "postgres_admin_password" {
   description = "Initial admin password for PostgreSQL, used to set the secret in Azure Key Vault."
   type        = string
   sensitive   = true
+  
+  validation {
+    condition = can(regex("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{12,}$", var.postgres_admin_password))
+    error_message = "Password must be at least 12 characters with uppercase, lowercase, number, and special character."
+  }
 }
 
 variable "postgres_database_name" {
